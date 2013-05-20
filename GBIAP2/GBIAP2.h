@@ -96,7 +96,7 @@ typedef void(^GBIAP2PurchaseSuccessHandler)(NSString *productIdentifier, GBIAP2T
 #pragma mark - IAP prep phase
 
 //Fetch metadata for products. Add a handler to process it
--(void)fetchMetadataForProducts:(NSArray *)productIdentifiers;
+-(void)fetchMetadataForProducts:(NSArray *)productIdentifiers completed:(void(^)(void))block;
 
 //Enumerate the different products
 -(void)enumerateFetchedProductsWithBlock:(GBIAP2ProductHandler)block showCurrencySymbol:(BOOL)shouldShowCurrencySymbol;

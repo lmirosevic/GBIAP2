@@ -27,6 +27,7 @@ static CGFloat const kGBIAP2TimeoutInterval = 10;
 @property (strong, nonatomic) id<GBIAP2AnalyticsModule>     analyticsModule;
 @property (assign, nonatomic) BOOL                          isMetadataFetchInProgress;
 @property (assign, nonatomic) BOOL                          isSolicitedRestoreInProgress;
+@property (copy, nonatomic)                                 void(^internalMetadataFetchCompletedHandler)(void);
 
 //Queue for verification
 @property (assign, nonatomic) dispatch_queue_t              myQueue;
@@ -88,6 +89,7 @@ static CGFloat const kGBIAP2TimeoutInterval = 10;
     self.validationServers = nil;
     self.productCache = nil;
     self.solicitedPurchases = nil;
+    self.internalMetadataFetchCompletedHandler = nil;
     
     //handler storage
     self.didBeginMetadataFetchHandlers = nil;
@@ -143,13 +145,19 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
 
 #pragma mark - IAP prep phase
 
--(void)fetchMetadataForProducts:(NSArray *)productIdentifiers {
+-(void)fetchMetadataForProducts:(NSArray *)productIdentifiers completed:(void(^)(void))block {
     //analytics
     if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerUserDidRequestMetadataForProducts:)]) [self.analyticsModule iapManagerUserDidRequestMetadataForProducts:productIdentifiers];
+    
+    //remove a dangling block if there was one
+    self.internalMetadataFetchCompletedHandler = nil;
     
     if (!self.isMetadataFetchInProgress) {
         if (productIdentifiers) {
             self.isMetadataFetchInProgress = YES;
+            
+            //remember the block
+            self.internalMetadataFetchCompletedHandler = block;
             
             //create products request
             SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:[NSSet setWithArray:productIdentifiers]];
@@ -213,6 +221,12 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
         
         //no longer in process
         self.isMetadataFetchInProgress = NO;
+        
+        //call the internal handler if we have one
+        if (self.internalMetadataFetchCompletedHandler) {
+            self.internalMetadataFetchCompletedHandler();
+            self.internalMetadataFetchCompletedHandler = nil;
+        }
         
         //call the handlers
         for (GBIAP2MetadataFetchDidEndHandler handler in self.didEndMetadataFetchHandlers) {
@@ -407,7 +421,7 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
                 //finish transaction
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                 
-                //foo get the state
+                //get the state
                 GBIAP2VerificationState state = resultBool ? GBIAP2VerificationStateSuccess : GBIAP2VerificationStateFailed;
                 
                 //tell handlers that he exited the verification phase
