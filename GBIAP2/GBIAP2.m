@@ -21,30 +21,30 @@ static CGFloat const kGBIAP2TimeoutInterval = 10;
 @interface GBIAP2 () <SKProductsRequestDelegate, SKPaymentTransactionObserver>
 
 //Some state
-@property (copy, nonatomic) NSArray *validationServers;
-@property (strong, nonatomic) NSMutableDictionary *productCache;
-@property (strong, nonatomic) NSMutableSet *solicitedPurchases;
-@property (strong, nonatomic) id<GBIAP2AnalyticsModule> analyticsModule;
-@property (assign, nonatomic) BOOL isMetadataFetchInProgress;
-@property (assign, nonatomic) BOOL isSolicitedRestoreInProgress;
+@property (copy, nonatomic) NSArray                         *validationServers;
+@property (strong, nonatomic) NSMutableDictionary           *productCache;
+@property (strong, nonatomic) NSMutableSet                  *solicitedPurchases;
+@property (strong, nonatomic) id<GBIAP2AnalyticsModule>     analyticsModule;
+@property (assign, nonatomic) BOOL                          isMetadataFetchInProgress;
+@property (assign, nonatomic) BOOL                          isSolicitedRestoreInProgress;
 
 //Queue for verification
-@property (assign, nonatomic) dispatch_queue_t myQueue;
+@property (assign, nonatomic) dispatch_queue_t              myQueue;
 
 //Metadata
-@property (strong, nonatomic) NSMutableArray *didBeginMetadataFetchHandlers;
-@property (strong, nonatomic) NSMutableArray *didEndMetadataFetchHandlers;
+@property (strong, nonatomic) NSMutableArray                *didBeginMetadataFetchHandlers;
+@property (strong, nonatomic) NSMutableArray                *didEndMetadataFetchHandlers;
 
 //Purchase flow
-@property (strong, nonatomic) NSMutableArray *didBeginPurchasePhaseHandlers;
-@property (strong, nonatomic) NSMutableArray *didEndPurchasePhaseHandlers;
-@property (strong, nonatomic) NSMutableArray *didBeginRestorePhaseHandlers;
-@property (strong, nonatomic) NSMutableArray *didEndRestorePhaseHandlers;
-@property (strong, nonatomic) NSMutableArray *didBeginVerificationPhaseHandlers;
-@property (strong, nonatomic) NSMutableArray *didEndVerificationPhaseHandlers;
+@property (strong, nonatomic) NSMutableArray                *didBeginPurchasePhaseHandlers;
+@property (strong, nonatomic) NSMutableArray                *didEndPurchasePhaseHandlers;
+@property (strong, nonatomic) NSMutableArray                *didBeginRestorePhaseHandlers;
+@property (strong, nonatomic) NSMutableArray                *didEndRestorePhaseHandlers;
+@property (strong, nonatomic) NSMutableArray                *didBeginVerificationPhaseHandlers;
+@property (strong, nonatomic) NSMutableArray                *didEndVerificationPhaseHandlers;
 
 //Purchase acquiry
-@property (strong, nonatomic) NSMutableArray *didSuccessfullyAcquireProductHandlers;
+@property (strong, nonatomic) NSMutableArray                *didSuccessfullyAcquireProductHandlers;
 
 @end
 
