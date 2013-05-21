@@ -10,7 +10,7 @@
 
 #import <StoreKit/StoreKit.h>
 
-static CGFloat const kGBIAP2TimeoutInterval = 10;
+static CGFloat const kGBIAP2TimeoutInterval = 20;
 
 #if !DEBUG
 static NSString * const kVerificationEndpointServerPath = @"production";
@@ -18,7 +18,10 @@ static NSString * const kVerificationEndpointServerPath = @"production";
 static NSString * const kVerificationEndpointServerPath = @"development";
 #endif
 
-@interface GBIAP2 () <SKProductsRequestDelegate, SKPaymentTransactionObserver>
+@interface GBIAP2 () <SKProductsRequestDelegate, SKPaymentTransactionObserver> {
+    BOOL                                                    _didRequestSolicitedRestore;
+    CGFloat                                                 _solicitedRestoreTransactionsRemaining;
+}
 
 //Some state
 @property (copy, nonatomic) NSArray                         *validationServers;
@@ -26,8 +29,10 @@ static NSString * const kVerificationEndpointServerPath = @"development";
 @property (strong, nonatomic) NSMutableSet                  *solicitedPurchases;
 @property (strong, nonatomic) id<GBIAP2AnalyticsModule>     analyticsModule;
 @property (assign, nonatomic) BOOL                          isMetadataFetchInProgress;
-@property (assign, nonatomic) BOOL                          isSolicitedRestoreInProgress;
 @property (copy, nonatomic) GBIAP2MetadataCompletionBlock   internalMetadataFetchCompletedBlock;
+
+//Solicitation state
+@property (assign, nonatomic, readonly) BOOL                isSolicitedRestoreInProgress;
 
 //Queue for verification
 @property (assign, nonatomic) dispatch_queue_t              myQueue;
@@ -121,6 +126,54 @@ _lazy2(NSMutableArray, didBeginVerificationPhaseHandlers, _didBeginVerificationP
 _lazy2(NSMutableArray, didEndVerificationPhaseHandlers, _didEndVerificationPhaseHandlers)
 _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAcquireProductHandlers)
 _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductHandlers)
+
+#pragma mark - Solicited restore phase tracking (private)
+
+-(void)_startSolicitedRestore {
+    _didRequestSolicitedRestore = YES;
+    _solicitedRestoreTransactionsRemaining = 0;
+}
+
+-(void)_resetRestoreSolicitationState {
+    _didRequestSolicitedRestore = NO;
+    _solicitedRestoreTransactionsRemaining = 0;
+}
+
+-(void)_decrementSolicitedRestoreCount {
+    _solicitedRestoreTransactionsRemaining -= 1;
+    
+    //if our restore flow has come to an end
+    if (_solicitedRestoreTransactionsRemaining <= 0) {
+        [self _resetRestoreSolicitationState];
+    }
+}
+
+-(void)_initializeSolicitedRestoreCount:(NSInteger)count {
+    if (count > 0) {
+        _solicitedRestoreTransactionsRemaining = count;
+    }
+    else {
+        [self _resetRestoreSolicitationState];
+    }
+}
+
+-(BOOL)_shouldInitializeSolicitedRestoreCount {
+    return (_didRequestSolicitedRestore && _solicitedRestoreTransactionsRemaining == 0);
+}
+
+-(BOOL)isSolicitedRestoreInProgress {
+    return (_didRequestSolicitedRestore || _solicitedRestoreTransactionsRemaining > 0);
+}
+
+-(NSUInteger)_numberOfRestoredTransactionsCurrentlyInQueue:(SKPaymentQueue *)queue {
+    NSUInteger count = 0;
+    for (SKPaymentTransaction *transaction in queue.transactions) {
+        if (transaction.transactionState == SKPaymentTransactionStateRestored) {
+            count += 1;
+        }
+    }
+    return count;
+}
 
 #pragma mark - Setup phase
 
@@ -296,7 +349,7 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
     [[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
     
     //remember that we've solicited a restore
-    self.isSolicitedRestoreInProgress = YES;
+    [self _startSolicitedRestore];
     
     //call didEnterPurchasePhaseHandlers
     for (GBIAP2PurchasePhaseDidBeginHandler handler in self.didBeginRestorePhaseHandlers) {
@@ -330,8 +383,8 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
         //analytics
         if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidFailToAcquireProduct:withTransactionType:transactionState:solicited:)]) [self.analyticsModule iapManagerDidFailToAcquireProduct:nil withTransactionType:GBIAP2TransactionTypeRestore transactionState:transactionState solicited:self.isSolicitedRestoreInProgress];
         
-        //we've no longer solicited a restore
-        self.isSolicitedRestoreInProgress = NO;
+        //this is an exit point for the solicited restore
+        [self _resetRestoreSolicitationState];
     });
 }
 
@@ -356,6 +409,9 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
                 case SKPaymentTransactionStateRestored: {
                     NSString *productIdentifier = transaction.originalTransaction.payment.productIdentifier;
                     
+                    //if the user solicited the restore and we didn't init yet, then do so
+                    if ([self _shouldInitializeSolicitedRestoreCount]) [self _initializeSolicitedRestoreCount:[self _numberOfRestoredTransactionsCurrentlyInQueue:queue]];
+                    
                     //tell handlers that he exited the restore phase
                     for (GBIAP2PurchasePhaseDidEndHandler handler in self.didEndRestorePhaseHandlers) {
                         handler(productIdentifier, GBIAP2PurchaseStateSuccess, self.isSolicitedRestoreInProgress);
@@ -370,7 +426,6 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
                 case SKPaymentTransactionStateFailed: {
                     NSString *productIdentifier = transaction.payment.productIdentifier;
                     
-                    //foo shud I do this here? try not doing it and see what happens
                     [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                     
                     //determine state
@@ -502,8 +557,8 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
                     [self.solicitedPurchases removeObject:productIdentifier];
                 }
                 else if (transactionType == GBIAP2TransactionTypeRestore) {
-                    //turn off the solicited restore flag
-                    self.isSolicitedRestoreInProgress = NO;
+                    //this is an exit point for the solicited restore
+                    [self _decrementSolicitedRestoreCount];
                 }
             });
         });
