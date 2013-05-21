@@ -289,7 +289,7 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
         }
         
         //analytics
-        if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndMetatdataFetchForProducts:state:)]) [self.analyticsModule iapManagerDidEndMetatdataFetchForProducts:[self.productCache allKeys] state:GBIAP2MetadataFetchStateSuccess];
+        if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndMetatdataFetchForProducts:state:)]) [self.analyticsModule iapManagerDidEndMetadataFetchForProducts:[self.productCache allKeys] state:GBIAP2MetadataFetchStateSuccess];
         
         //call the internal handler if we have one. call this last in case the client inside it chooses to make a purchase, so the metadata fetch state has had time to propagete through the system before the purchase state kicks off
         if (self.internalMetadataFetchCompletedBlock) {
@@ -314,7 +314,7 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
         }
         
         //analytics
-        if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndMetatdataFetchForProducts:state:)]) [self.analyticsModule iapManagerDidEndMetatdataFetchForProducts:@[] state:GBIAP2MetadataFetchStateFailed];
+        if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndMetatdataFetchForProducts:state:)]) [self.analyticsModule iapManagerDidEndMetadataFetchForProducts:@[] state:GBIAP2MetadataFetchStateFailed];
     });
 }
 

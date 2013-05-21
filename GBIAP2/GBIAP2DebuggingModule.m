@@ -34,7 +34,7 @@
     NSLog(@"iapManagerDidBeginMetadataFetchForProducts:%@", productIdentifiers);
 }
 
--(void)iapManagerDidEndMetatdataFetchForProducts:(NSArray *)productIdentifiers state:(GBIAP2MetadataFetchState)state  {
+-(void)iapManagerDidEndMetadataFetchForProducts:(NSArray *)productIdentifiers state:(GBIAP2MetadataFetchState)state  {
     NSLog(@"iapManagerDidEndMetatdataFetchForProducts:%@ state:%d", productIdentifiers, state);
 }
 

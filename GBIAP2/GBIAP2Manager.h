@@ -138,7 +138,7 @@ typedef void(^GBIAP2PurchaseDidCompleteHandler)(NSString *productIdentifier, GBI
 -(void)iapManagerUserDidRequestRestore;
 
 -(void)iapManagerDidBeginMetadataFetchForProducts:(NSArray *)productIdentifiers;
--(void)iapManagerDidEndMetatdataFetchForProducts:(NSArray *)productIdentifiers state:(GBIAP2MetadataFetchState)state;
+-(void)iapManagerDidEndMetadataFetchForProducts:(NSArray *)productIdentifiers state:(GBIAP2MetadataFetchState)state;
 
 -(void)iapManagerDidBeginPurchaseForProduct:(NSString *)productIdentifier;
 -(void)iapManagerDidEndPurchaseForProduct:(NSString *)productIdentifier state:(GBIAP2PurchaseState)state solicited:(BOOL)solicited;
