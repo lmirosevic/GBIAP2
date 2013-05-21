@@ -7,9 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8A30DED2174B57E1002530BB /* GBIAP2DebuggingModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A30DED1174B57E1002530BB /* GBIAP2DebuggingModule.m */; };
+		8A30DED5174B5999002530BB /* GBIAP2Manager.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A30DED4174B5999002530BB /* GBIAP2Manager.m */; };
 		8ADF5673174A0E9100DA5067 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8ADF5672174A0E9100DA5067 /* Foundation.framework */; };
 		8ADF5678174A0E9100DA5067 /* GBIAP2.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8ADF5677174A0E9100DA5067 /* GBIAP2.h */; };
-		8ADF567A174A0E9100DA5067 /* GBIAP2.m in Sources */ = {isa = PBXBuildFile; fileRef = 8ADF5679174A0E9100DA5067 /* GBIAP2.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -26,11 +27,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8A30DED0174B57E1002530BB /* GBIAP2DebuggingModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GBIAP2DebuggingModule.h; sourceTree = "<group>"; };
+		8A30DED1174B57E1002530BB /* GBIAP2DebuggingModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GBIAP2DebuggingModule.m; sourceTree = "<group>"; };
+		8A30DED3174B5999002530BB /* GBIAP2Manager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GBIAP2Manager.h; sourceTree = "<group>"; };
+		8A30DED4174B5999002530BB /* GBIAP2Manager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GBIAP2Manager.m; sourceTree = "<group>"; };
 		8ADF566F174A0E9100DA5067 /* libGBIAP2.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libGBIAP2.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		8ADF5672174A0E9100DA5067 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		8ADF5676174A0E9100DA5067 /* GBIAP2-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GBIAP2-Prefix.pch"; sourceTree = "<group>"; };
 		8ADF5677174A0E9100DA5067 /* GBIAP2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GBIAP2.h; sourceTree = "<group>"; };
-		8ADF5679174A0E9100DA5067 /* GBIAP2.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GBIAP2.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,7 +78,10 @@
 			isa = PBXGroup;
 			children = (
 				8ADF5677174A0E9100DA5067 /* GBIAP2.h */,
-				8ADF5679174A0E9100DA5067 /* GBIAP2.m */,
+				8A30DED3174B5999002530BB /* GBIAP2Manager.h */,
+				8A30DED4174B5999002530BB /* GBIAP2Manager.m */,
+				8A30DED0174B57E1002530BB /* GBIAP2DebuggingModule.h */,
+				8A30DED1174B57E1002530BB /* GBIAP2DebuggingModule.m */,
 				8ADF5675174A0E9100DA5067 /* Supporting Files */,
 			);
 			path = GBIAP2;
@@ -139,7 +146,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8ADF567A174A0E9100DA5067 /* GBIAP2.m in Sources */,
+				8A30DED2174B57E1002530BB /* GBIAP2DebuggingModule.m in Sources */,
+				8A30DED5174B5999002530BB /* GBIAP2Manager.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -242,6 +250,7 @@
 				8ADF567F174A0E9100DA5067 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

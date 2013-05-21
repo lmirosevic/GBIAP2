@@ -1,21 +1,21 @@
 //
-//  GBIAP2.m
+//  GBIAP2Manager.m
 //  GBIAP2
 //
-//  Created by Luka Mirosevic on 20/05/2013.
+//  Created by Luka Mirosevic on 21/05/2013.
 //  Copyright (c) 2013 Goonbee. All rights reserved.
 //
 
-#import "GBIAP2.h"
+#import "GBIAP2Manager.h"
 
 #import <StoreKit/StoreKit.h>
 
 static CGFloat const kGBIAP2TimeoutInterval = 10;
 
 #if !DEBUG
-    static NSString * const kVerificationEndpointServerPath = @"production";
+static NSString * const kVerificationEndpointServerPath = @"production";
 #else
-    static NSString * const kVerificationEndpointServerPath = @"development";
+static NSString * const kVerificationEndpointServerPath = @"development";
 #endif
 
 @interface GBIAP2 () <SKProductsRequestDelegate, SKPaymentTransactionObserver>
@@ -27,7 +27,7 @@ static CGFloat const kGBIAP2TimeoutInterval = 10;
 @property (strong, nonatomic) id<GBIAP2AnalyticsModule>     analyticsModule;
 @property (assign, nonatomic) BOOL                          isMetadataFetchInProgress;
 @property (assign, nonatomic) BOOL                          isSolicitedRestoreInProgress;
-@property (copy, nonatomic)                                 void(^internalMetadataFetchCompletedHandler)(void);
+@property (copy, nonatomic) GBIAP2MetadataCompletionBlock   internalMetadataFetchCompletedBlock;
 
 //Queue for verification
 @property (assign, nonatomic) dispatch_queue_t              myQueue;
@@ -46,6 +46,7 @@ static CGFloat const kGBIAP2TimeoutInterval = 10;
 
 //Purchase acquiry
 @property (strong, nonatomic) NSMutableArray                *didSuccessfullyAcquireProductHandlers;
+@property (strong, nonatomic) NSMutableArray                *didFailToAcquireProductHandlers;
 
 @end
 
@@ -73,9 +74,9 @@ static CGFloat const kGBIAP2TimeoutInterval = 10;
         [[SKPaymentQueue defaultQueue] addTransactionObserver:self];
         self.myQueue = dispatch_queue_create("GBIAP2 queue", NULL);
         
-        #if DEBUG
-            NSLog(@"GBIAP2: Running with sandbox server API endpoint");
-        #endif
+#if DEBUG
+        NSLog(@"GBIAP2: Running with sandbox server API endpoint");
+#endif
     }
     
     return self;
@@ -89,7 +90,7 @@ static CGFloat const kGBIAP2TimeoutInterval = 10;
     self.validationServers = nil;
     self.productCache = nil;
     self.solicitedPurchases = nil;
-    self.internalMetadataFetchCompletedHandler = nil;
+    self.internalMetadataFetchCompletedBlock = nil;
     
     //handler storage
     self.didBeginMetadataFetchHandlers = nil;
@@ -101,6 +102,7 @@ static CGFloat const kGBIAP2TimeoutInterval = 10;
     self.didBeginVerificationPhaseHandlers = nil;
     self.didEndVerificationPhaseHandlers = nil;
     self.didSuccessfullyAcquireProductHandlers = nil;
+    self.didFailToAcquireProductHandlers = nil;
 }
 
 //Borrowed from GBToolbox, suffixed with 2 to prevent potential name clash//foo try renaming to _lazy and see if it works if the superproject uses GBToolbox
@@ -118,11 +120,12 @@ _lazy2(NSMutableArray, didEndRestorePhaseHandlers, _didEndRestorePhaseHandlers)
 _lazy2(NSMutableArray, didBeginVerificationPhaseHandlers, _didBeginVerificationPhaseHandlers)
 _lazy2(NSMutableArray, didEndVerificationPhaseHandlers, _didEndVerificationPhaseHandlers)
 _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAcquireProductHandlers)
+_lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductHandlers)
 
 #pragma mark - Setup phase
 
 -(void)setAnalyticsModule:(id<GBIAP2AnalyticsModule>)analyticsModule {
-    self.analyticsModule = analyticsModule;
+    _analyticsModule = analyticsModule;
 }
 
 -(void)resumePendingTransactions {
@@ -133,31 +136,31 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
 }
 
 -(void)registerValidationServers:(NSArray *)validationServers {
-    self.validationServers = validationServers;
+    _validationServers = validationServers;
     
     //analytics
     if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidRegisterValidationServers:)]) [self.analyticsModule iapManagerDidRegisterValidationServers:validationServers];
 }
 
 -(NSArray *)validationServers {
-    return self.validationServers;
+    return _validationServers;
 }
 
 #pragma mark - IAP prep phase
 
--(void)fetchMetadataForProducts:(NSArray *)productIdentifiers completed:(void(^)(void))block {
+-(void)fetchMetadataForProducts:(NSArray *)productIdentifiers completed:(GBIAP2MetadataCompletionBlock)block {
     //analytics
     if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerUserDidRequestMetadataForProducts:)]) [self.analyticsModule iapManagerUserDidRequestMetadataForProducts:productIdentifiers];
     
     //remove a dangling block if there was one
-    self.internalMetadataFetchCompletedHandler = nil;
+    self.internalMetadataFetchCompletedBlock = nil;
     
     if (!self.isMetadataFetchInProgress) {
         if (productIdentifiers) {
             self.isMetadataFetchInProgress = YES;
             
             //remember the block
-            self.internalMetadataFetchCompletedHandler = block;
+            self.internalMetadataFetchCompletedBlock = block;
             
             //create products request
             SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:[NSSet setWithArray:productIdentifiers]];
@@ -177,6 +180,11 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
         else {
             @throw [NSException exceptionWithName:@"BadParams" reason:@"productIdentifiers, can't request products without identifiers" userInfo:nil];
         }
+    }
+    //busy
+    else {
+        //let client know that it failed already
+        if (block) block(NO);
     }
 }
 
@@ -223,9 +231,9 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
         self.isMetadataFetchInProgress = NO;
         
         //call the internal handler if we have one
-        if (self.internalMetadataFetchCompletedHandler) {
-            self.internalMetadataFetchCompletedHandler();
-            self.internalMetadataFetchCompletedHandler = nil;
+        if (self.internalMetadataFetchCompletedBlock) {
+            self.internalMetadataFetchCompletedBlock(YES);
+            self.internalMetadataFetchCompletedBlock = nil;
         }
         
         //call the handlers
@@ -241,6 +249,12 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
 //this one isnt technically in the SKProductsRequestDelegate but he might as well be
 -(void)request:(SKRequest *)request didFailWithError:(NSError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
+        //call the internal handler if we have one
+        if (self.internalMetadataFetchCompletedBlock) {
+            self.internalMetadataFetchCompletedBlock(NO);
+            self.internalMetadataFetchCompletedBlock = nil;
+        }
+        
         //call the handlers
         for (GBIAP2MetadataFetchDidEndHandler handler in self.didEndMetadataFetchHandlers) {
             handler(nil, GBIAP2MetadataFetchStateFailed);
@@ -280,7 +294,7 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
     
     //send restore to apple
     [[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
-
+    
     //remember that we've solicited a restore
     self.isSolicitedRestoreInProgress = YES;
     
@@ -297,13 +311,24 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
 
 -(void)paymentQueue:(SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError:(NSError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
-        //determine state
-        GBIAP2PurchaseState state = (error.code == SKErrorPaymentCancelled) ? GBIAP2PurchaseStateCancelled : GBIAP2PurchaseStateFailed;
+        //determine purchase state
+        GBIAP2PurchaseState purchaseState = (error.code == SKErrorPaymentCancelled) ? GBIAP2PurchaseStateCancelled : GBIAP2PurchaseStateFailed;
+        
+        //determine overall state
+        GBIAP2TransactionState transactionState = (error.code == SKErrorPaymentCancelled) ? GBIAP2TransactionStateCancelled : GBIAP2TransactionStateFailed;
         
         //tell handlers
         for (GBIAP2PurchasePhaseDidEndHandler handler in self.didEndRestorePhaseHandlers) {
-            handler(nil, state, self.isSolicitedRestoreInProgress);
+            handler(nil, purchaseState, self.isSolicitedRestoreInProgress);
         }
+        
+        //tell handlers
+        for (GBIAP2PurchaseDidCompleteHandler handler in self.didFailToAcquireProductHandlers) {
+            handler(nil, GBIAP2TransactionTypeRestore, transactionState, self.isSolicitedRestoreInProgress);
+        }
+        
+        //analytics
+        if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidFailToAcquireProduct:withTransactionType:transactionState:solicited:)]) [self.analyticsModule iapManagerDidFailToAcquireProduct:nil withTransactionType:GBIAP2TransactionTypeRestore transactionState:transactionState solicited:self.isSolicitedRestoreInProgress];
         
         //we've no longer solicited a restore
         self.isSolicitedRestoreInProgress = NO;
@@ -330,7 +355,7 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
                 } break;
                 case SKPaymentTransactionStateRestored: {
                     NSString *productIdentifier = transaction.originalTransaction.payment.productIdentifier;
-
+                    
                     //tell handlers that he exited the restore phase
                     for (GBIAP2PurchasePhaseDidEndHandler handler in self.didEndRestorePhaseHandlers) {
                         handler(productIdentifier, GBIAP2PurchaseStateSuccess, self.isSolicitedRestoreInProgress);
@@ -349,15 +374,24 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
                     [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                     
                     //determine state
-                    GBIAP2PurchaseState state = (transaction.error.code == SKErrorPaymentCancelled) ? GBIAP2PurchaseStateCancelled : GBIAP2PurchaseStateFailed;
+                    GBIAP2PurchaseState purchaseState = (transaction.error.code == SKErrorPaymentCancelled) ? GBIAP2PurchaseStateCancelled : GBIAP2PurchaseStateFailed;
+                    GBIAP2TransactionState transactionState = (transaction.error.code == SKErrorPaymentCancelled) ? GBIAP2TransactionStateCancelled : GBIAP2TransactionStateFailed;
                     
                     //tell handlers that he exited the purchase phase
                     for (GBIAP2PurchasePhaseDidEndHandler handler in self.didEndPurchasePhaseHandlers) {
-                        handler(productIdentifier, state, [self.solicitedPurchases containsObject:productIdentifier]);
+                        handler(productIdentifier, purchaseState, [self.solicitedPurchases containsObject:productIdentifier]);
                     }
                     
                     //analytics
-                    if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndPurchaseForProduct:state:solicited:)]) [self.analyticsModule iapManagerDidEndPurchaseForProduct:productIdentifier state:state solicited:[self.solicitedPurchases containsObject:productIdentifier]];
+                    if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndPurchaseForProduct:state:solicited:)]) [self.analyticsModule iapManagerDidEndPurchaseForProduct:productIdentifier state:purchaseState solicited:[self.solicitedPurchases containsObject:productIdentifier]];
+                    
+                    //tell handlers that this product purchase failed
+                    for (GBIAP2PurchaseDidCompleteHandler handler in self.didFailToAcquireProductHandlers) {
+                        handler(productIdentifier, GBIAP2TransactionTypePurchase, transactionState, [self.solicitedPurchases containsObject:productIdentifier]);
+                    }
+                    
+                    //analytics
+                    if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidFailToAcquireProduct:withTransactionType:transactionState:solicited:)]) [self.analyticsModule iapManagerDidFailToAcquireProduct:productIdentifier withTransactionType:GBIAP2TransactionTypePurchase transactionState:transactionState solicited:[self.solicitedPurchases containsObject:productIdentifier]];
                     
                     //remove the product from the solicited purchases
                     [self.solicitedPurchases removeObject:productIdentifier];
@@ -375,6 +409,10 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
 -(void)_verifyTransaction:(SKPaymentTransaction *)transaction withType:(GBIAP2TransactionType)transactionType {
     NSString *productIdentifier = transaction.payment.productIdentifier;
     
+    NSUInteger serverCount = self.validationServers.count;
+    NSString *randomServer = self.validationServers[arc4random() % serverCount];
+    NSURL *url = [NSURL URLWithString:randomServer];
+    
     //purchase
     if (transactionType == GBIAP2TransactionTypePurchase) {
         //tell delegates that he started the verification phase
@@ -390,17 +428,11 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
         }
     }
     
+    //analytics
+    if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidBeginVerificationForProduct:onServer:)]) [self.analyticsModule iapManagerDidBeginVerificationForProduct:productIdentifier onServer:randomServer];
+    
     //start verifying receipt
     if (transaction.transactionReceipt) {
-        //first get a server url
-        NSUInteger serverCount = self.validationServers.count;
-        NSString *randomServer = self.validationServers[arc4random() % serverCount];
-        NSString *serverPath = [randomServer stringByAppendingPathComponent:@"production"];
-        NSURL *url = [NSURL URLWithString:serverPath];
-        
-        //analytics
-        if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidBeginVerificationForProduct:onServer:)]) [self.analyticsModule iapManagerDidBeginVerificationForProduct:productIdentifier onServer:serverPath];
-        
         //prep url request
         NSMutableURLRequest *urlRequest = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:kGBIAP2TimeoutInterval];
         [urlRequest setHTTPMethod:@"POST"];
@@ -410,7 +442,8 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
         //send url request
         dispatch_async(self.myQueue, ^{
             NSURLResponse *response;
-            NSData *resultData = [NSURLConnection sendSynchronousRequest:urlRequest returningResponse:&response error:NULL];
+            NSError *error;
+            NSData *resultData = [NSURLConnection sendSynchronousRequest:urlRequest returningResponse:&response error:&error];
             
             //process data into a string
             NSString *resultString = [[NSString alloc] initWithData:resultData encoding:NSUTF8StringEncoding];
@@ -422,35 +455,55 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
                 
                 //get the state
-                GBIAP2VerificationState state = resultBool ? GBIAP2VerificationStateSuccess : GBIAP2VerificationStateFailed;
+                GBIAP2VerificationState purchaseState = resultBool ? GBIAP2VerificationStateSuccess : GBIAP2VerificationStateFailed;
+                GBIAP2TransactionState transactionState = resultBool ? GBIAP2TransactionStateSuccess : GBIAP2TransactionStateFailed;
+                
+                //conclude whether he was solicited or not
+                BOOL wasSolicited = NO;
+                if (transactionType == GBIAP2TransactionTypePurchase) {
+                    wasSolicited = [self.solicitedPurchases containsObject:productIdentifier];
+                }
+                else if (transactionType == GBIAP2TransactionTypeRestore) {
+                    wasSolicited = self.isSolicitedRestoreInProgress;
+                }
                 
                 //tell handlers that he exited the verification phase
                 for (GBIAP2VerificationPhaseDidEndHandler handler in self.didEndVerificationPhaseHandlers) {
-                    handler(productIdentifier, state, [self.solicitedPurchases containsObject:productIdentifier]);
+                    handler(productIdentifier, purchaseState, wasSolicited);
                 }
                 
                 //analytics
-                if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndVerificationForProduct:onServer:success:)]) [self.analyticsModule iapManagerDidEndVerificationForProduct:productIdentifier onServer:serverPath state:state];
+                if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndVerificationForProduct:onServer:state:)]) [self.analyticsModule iapManagerDidEndVerificationForProduct:productIdentifier onServer:randomServer state:purchaseState];
                 
-                //purchase
+                //if succesful
+                if (purchaseState == GBIAP2VerificationStateSuccess) {
+                    //call success handlers
+                    for (GBIAP2PurchaseDidCompleteHandler handler in self.didSuccessfullyAcquireProductHandlers) {
+                        handler(productIdentifier, transactionType, transactionState, wasSolicited);
+                    }
+                    
+                    //analytics
+                    if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidSuccessfullyAcquireProduct:withTransactionType:transactionState:solicited:)]) [self.analyticsModule iapManagerDidSuccessfullyAcquireProduct:productIdentifier withTransactionType:transactionType transactionState:transactionState solicited:wasSolicited];
+                }
+                //if failed
+                else {
+                    //tell handlers
+                    for (GBIAP2PurchaseDidCompleteHandler handler in self.didFailToAcquireProductHandlers) {
+                        handler(productIdentifier, transactionType, transactionState, wasSolicited);
+                    }
+                    
+                    //analytics
+                    if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidFailToAcquireProduct:withTransactionType:transactionState:solicited:)]) [self.analyticsModule iapManagerDidFailToAcquireProduct:productIdentifier withTransactionType:transactionType transactionState:transactionState solicited:wasSolicited];
+                }
+                
+                //reset solicited internal state keepers
                 if (transactionType == GBIAP2TransactionTypePurchase) {
                     //remove the product from the solicited purchases
                     [self.solicitedPurchases removeObject:productIdentifier];
                 }
-                //restore
                 else if (transactionType == GBIAP2TransactionTypeRestore) {
+                    //turn off the solicited restore flag
                     self.isSolicitedRestoreInProgress = NO;
-                }
-                
-                //if succesful
-                if (state == GBIAP2VerificationStateSuccess) {
-                    //call success handlers
-                    for (GBIAP2PurchaseSuccessHandler handler in self.didSuccessfullyAcquireProductHandlers) {
-                        handler(productIdentifier, transactionType);
-                    }
-                    
-                    //analytics
-                    if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidSuccessfullyAcquireProduct:withTransactionType:)]) [self.analyticsModule iapManagerDidSuccessfullyAcquireProduct:productIdentifier withTransactionType:transactionType];
                 }
             });
         });
@@ -460,43 +513,47 @@ _lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAc
 #pragma mark - Metadata flow
 
 -(void)addHandlerForDidBeginMetadataFetch:(GBIAP2MetadataFetchDidBeginHandler)handler {
-    [self.didBeginMetadataFetchHandlers addObject:[handler copy]];
+    if (handler) [self.didBeginMetadataFetchHandlers addObject:[handler copy]];
 }
 
 -(void)addHandlerForDidEndMetadataFetch:(GBIAP2MetadataFetchDidEndHandler)handler {
-    [self.didEndMetadataFetchHandlers addObject:[handler copy]];
+    if (handler) [self.didEndMetadataFetchHandlers addObject:[handler copy]];
 }
 
 #pragma mark - Purchase flow
 
 -(void)addHandlerForDidBeginPurchasePhase:(GBIAP2PurchasePhaseDidBeginHandler)handler {
-    [self.didBeginPurchasePhaseHandlers addObject:[handler copy]];
+    if (handler) [self.didBeginPurchasePhaseHandlers addObject:[handler copy]];
 }
 
 -(void)addHandlerForDidEndPurchasePhase:(GBIAP2PurchasePhaseDidEndHandler)handler {
-    [self.didEndPurchasePhaseHandlers addObject:[handler copy]];
+    if (handler) [self.didEndPurchasePhaseHandlers addObject:[handler copy]];
 }
 
 -(void)addHandlerForDidBeginRestorePhase:(GBIAP2PurchasePhaseDidBeginHandler)handler {
-    [self.didBeginRestorePhaseHandlers addObject:[handler copy]];
+    if (handler) [self.didBeginRestorePhaseHandlers addObject:[handler copy]];
 }
 
 -(void)addHandlerForDidEndRestorePhase:(GBIAP2PurchasePhaseDidEndHandler)handler {
-    [self.didEndRestorePhaseHandlers addObject:[handler copy]];
+    if (handler) [self.didEndRestorePhaseHandlers addObject:[handler copy]];
 }
 
 -(void)addHandlerForDidBeginVerificationPhase:(GBIAP2VerificationPhaseDidBeginHandler)handler {
-    [self.didBeginVerificationPhaseHandlers addObject:[handler copy]];
+    if (handler) [self.didBeginVerificationPhaseHandlers addObject:[handler copy]];
 }
 
 -(void)addHandlerForDidEndVerificationPhase:(GBIAP2VerificationPhaseDidEndHandler)handler {
-    [self.didEndVerificationPhaseHandlers addObject:[handler copy]];
+    if (handler) [self.didEndVerificationPhaseHandlers addObject:[handler copy]];
 }
 
 #pragma mark - Product acquired
 
--(void)addHandlerForDidSuccessfullyAcquireProduct:(GBIAP2PurchaseSuccessHandler)handler {
-    [self.didSuccessfullyAcquireProductHandlers addObject:[handler copy]];
+-(void)addHandlerForDidSuccessfullyAcquireProduct:(GBIAP2PurchaseDidCompleteHandler)handler {
+    if (handler) [self.didSuccessfullyAcquireProductHandlers addObject:[handler copy]];
+}
+
+-(void)addHandlerForDidFailToAcquireProduct:(GBIAP2PurchaseDidCompleteHandler)handler {
+    if (handler) [self.didFailToAcquireProductHandlers addObject:[handler copy]];
 }
 
 @end
