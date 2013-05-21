@@ -110,22 +110,22 @@ static NSString * const kVerificationEndpointServerPath = @"development";
     self.didFailToAcquireProductHandlers = nil;
 }
 
-//Borrowed from GBToolbox, suffixed with 2 to prevent potential name clash//foo try renaming to _lazy and see if it works if the superproject uses GBToolbox
-#define _lazy2(Class, propertyName, ivar) -(Class *)propertyName {if (!ivar) {ivar = [[Class alloc] init];}return ivar;}
+//Borrowed from GBToolbox
+#define _lazy(Class, propertyName, ivar) -(Class *)propertyName {if (!ivar) {ivar = [[Class alloc] init];}return ivar;}
 
-_lazy2(NSMutableDictionary, productCache, _productCache)
-_lazy2(NSMutableSet, solicitedPurchases, _solicitedPurchases)
+_lazy(NSMutableDictionary, productCache, _productCache)
+_lazy(NSMutableSet, solicitedPurchases, _solicitedPurchases)
 
-_lazy2(NSMutableArray, didBeginMetadataFetchHandlers, _didBeginMetadataFetchHandlers)
-_lazy2(NSMutableArray, didEndMetadataFetchHandlers, _didEndMetadataFetchHandlers)
-_lazy2(NSMutableArray, didBeginPurchasePhaseHandlers, _didBeginPurchasePhaseHandlers)
-_lazy2(NSMutableArray, didEndPurchasePhaseHandlers, _didEndPurchasePhaseHandlers)
-_lazy2(NSMutableArray, didBeginRestorePhaseHandlers, _didBeginRestorePhaseHandlers)
-_lazy2(NSMutableArray, didEndRestorePhaseHandlers, _didEndRestorePhaseHandlers)
-_lazy2(NSMutableArray, didBeginVerificationPhaseHandlers, _didBeginVerificationPhaseHandlers)
-_lazy2(NSMutableArray, didEndVerificationPhaseHandlers, _didEndVerificationPhaseHandlers)
-_lazy2(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAcquireProductHandlers)
-_lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductHandlers)
+_lazy(NSMutableArray, didBeginMetadataFetchHandlers, _didBeginMetadataFetchHandlers)
+_lazy(NSMutableArray, didEndMetadataFetchHandlers, _didEndMetadataFetchHandlers)
+_lazy(NSMutableArray, didBeginPurchasePhaseHandlers, _didBeginPurchasePhaseHandlers)
+_lazy(NSMutableArray, didEndPurchasePhaseHandlers, _didEndPurchasePhaseHandlers)
+_lazy(NSMutableArray, didBeginRestorePhaseHandlers, _didBeginRestorePhaseHandlers)
+_lazy(NSMutableArray, didEndRestorePhaseHandlers, _didEndRestorePhaseHandlers)
+_lazy(NSMutableArray, didBeginVerificationPhaseHandlers, _didBeginVerificationPhaseHandlers)
+_lazy(NSMutableArray, didEndVerificationPhaseHandlers, _didEndVerificationPhaseHandlers)
+_lazy(NSMutableArray, didSuccessfullyAcquireProductHandlers, _didSuccessfullyAcquireProductHandlers)
+_lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductHandlers)
 
 #pragma mark - Solicited restore phase tracking (private)
 
