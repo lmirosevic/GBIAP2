@@ -403,8 +403,10 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
                     //analytics
                     if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndPurchaseForProduct:state:solicited:)]) [self.analyticsModule iapManagerDidEndPurchaseForProduct:productIdentifier state:GBIAP2PurchaseStateSuccess solicited:[self.solicitedPurchases containsObject:productIdentifier]];
                     
+                    GBIAP2TransactionType transactionType = (transaction.originalTransaction != nil) ? GBIAP2TransactionTypeRePurchase : GBIAP2TransactionTypePurchase;
+                    
                     //verify transaction
-                    [self _verifyTransaction:transaction withType:GBIAP2TransactionTypePurchase];
+                    [self _verifyTransaction:transaction withType:transactionType];
                 } break;
                 case SKPaymentTransactionStateRestored: {
                     NSString *productIdentifier = transaction.originalTransaction.payment.productIdentifier;
@@ -469,7 +471,7 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
     NSURL *url = [NSURL URLWithString:randomServer];
     
     //purchase
-    if (transactionType == GBIAP2TransactionTypePurchase) {
+    if (transactionType == GBIAP2TransactionTypePurchase || transactionType == GBIAP2TransactionTypeRePurchase) {
         //tell delegates that he started the verification phase
         for (GBIAP2PurchasePhaseDidBeginHandler handler in self.didBeginVerificationPhaseHandlers) {
             handler(productIdentifier, [self.solicitedPurchases containsObject:productIdentifier]);
@@ -515,7 +517,7 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
                 
                 //conclude whether he was solicited or not
                 BOOL wasSolicited = NO;
-                if (transactionType == GBIAP2TransactionTypePurchase) {
+                if (transactionType == GBIAP2TransactionTypePurchase || transactionType == GBIAP2TransactionTypeRePurchase) {
                     wasSolicited = [self.solicitedPurchases containsObject:productIdentifier];
                 }
                 else if (transactionType == GBIAP2TransactionTypeRestore) {
@@ -552,7 +554,7 @@ _lazy2(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProduct
                 }
                 
                 //reset solicited internal state keepers
-                if (transactionType == GBIAP2TransactionTypePurchase) {
+                if (transactionType == GBIAP2TransactionTypePurchase || transactionType == GBIAP2TransactionTypeRePurchase) {
                     //remove the product from the solicited purchases
                     [self.solicitedPurchases removeObject:productIdentifier];
                 }

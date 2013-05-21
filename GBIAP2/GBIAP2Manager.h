@@ -32,6 +32,7 @@ typedef enum {
 typedef enum {
     GBIAP2TransactionTypeUnknown,
     GBIAP2TransactionTypePurchase,
+    GBIAP2TransactionTypeRePurchase,
     GBIAP2TransactionTypeRestore,
 } GBIAP2TransactionType;
 
