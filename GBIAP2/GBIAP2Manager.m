@@ -37,6 +37,10 @@ static NSString * const kVerificationEndpointServerPath = @"development";
 //Queue for verification
 @property (assign, nonatomic) dispatch_queue_t              myQueue;
 
+//Purchase/restore requests
+@property (strong, nonatomic) NSMutableArray                *didRequestPurchaseHandlers;
+@property (strong, nonatomic) NSMutableArray                *didRequestRestoreHandlers;
+
 //Metadata
 @property (strong, nonatomic) NSMutableArray                *didBeginMetadataFetchHandlers;
 @property (strong, nonatomic) NSMutableArray                *didEndMetadataFetchHandlers;
@@ -78,10 +82,6 @@ static NSString * const kVerificationEndpointServerPath = @"development";
     if (self = [super init]) {
         [[SKPaymentQueue defaultQueue] addTransactionObserver:self];
         self.myQueue = dispatch_queue_create("GBIAP2 queue", NULL);
-        
-#if DEBUG
-        NSLog(@"GBIAP2: Running with sandbox server API endpoint");
-#endif
     }
     
     return self;
@@ -98,6 +98,8 @@ static NSString * const kVerificationEndpointServerPath = @"development";
     self.internalMetadataFetchCompletedBlock = nil;
     
     //handler storage
+    self.didRequestPurchaseHandlers = nil;
+    self.didRequestRestoreHandlers = nil;
     self.didBeginMetadataFetchHandlers = nil;
     self.didEndMetadataFetchHandlers = nil;
     self.didBeginPurchasePhaseHandlers = nil;
@@ -116,6 +118,8 @@ static NSString * const kVerificationEndpointServerPath = @"development";
 _lazy(NSMutableDictionary, productCache, _productCache)
 _lazy(NSMutableSet, solicitedPurchases, _solicitedPurchases)
 
+_lazy(NSMutableArray, didRequestPurchaseHandlers, _didRequestPurchaseHandlers)
+_lazy(NSMutableArray, didRequestRestoreHandlers, _didRequestRestoreHandlers)
 _lazy(NSMutableArray, didBeginMetadataFetchHandlers, _didBeginMetadataFetchHandlers)
 _lazy(NSMutableArray, didEndMetadataFetchHandlers, _didEndMetadataFetchHandlers)
 _lazy(NSMutableArray, didBeginPurchasePhaseHandlers, _didBeginPurchasePhaseHandlers)
@@ -332,6 +336,11 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
     //remember whom we've solicited this time
     [self.solicitedPurchases addObject:productIdentifier];
     
+    //tell handlers
+    for (GBIAP2DidRequestPurchaseHandler handler in self.didRequestPurchaseHandlers) {
+        handler(productIdentifier);
+    }
+    
     //call didEnterPurchasePhaseHandlers
     for (GBIAP2PurchasePhaseDidBeginHandler handler in self.didBeginPurchasePhaseHandlers) {
         handler(productIdentifier, YES);
@@ -350,6 +359,11 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
     
     //remember that we've solicited a restore
     [self _startSolicitedRestore];
+    
+    //tell handlers
+    for (GBIAP2DidRequestRestoreHandler handler in self.didRequestRestoreHandlers) {
+        handler();
+    }
     
     //call didEnterPurchasePhaseHandlers
     for (GBIAP2PurchasePhaseDidBeginHandler handler in self.didBeginRestorePhaseHandlers) {
@@ -565,6 +579,17 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
             });
         });
     }
+}
+
+#pragma mark - Purchase/Restore requests
+
+//Notifies you when a purchase or restore was requested
+-(void)addHandlerForDidRequestPurchase:(GBIAP2DidRequestPurchaseHandler)handler {
+    if (handler) [self.didRequestPurchaseHandlers addObject:[handler copy]];
+}
+
+-(void)addHandlerForDidRequestRestore:(GBIAP2DidRequestRestoreHandler)handler {
+    if (handler) [self.didRequestRestoreHandlers addObject:[handler copy]];
 }
 
 #pragma mark - Metadata flow

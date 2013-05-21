@@ -53,6 +53,10 @@ typedef void(^GBIAP2MetadataCompletionBlock)(BOOL success);
 typedef void(^GBIAP2MetadataFetchDidBeginHandler)(NSArray *productIdentifiers);
 typedef void(^GBIAP2MetadataFetchDidEndHandler)(NSArray *productIdentifiers, GBIAP2MetadataFetchState fetchState);
 
+//Purchase/restore requests
+typedef void(^GBIAP2DidRequestPurchaseHandler)(NSString *productIdentifier);
+typedef void(^GBIAP2DidRequestRestoreHandler)(void);
+
 //Purchase or restore phase
 typedef void(^GBIAP2PurchasePhaseDidBeginHandler)(NSString *productIdentifier, BOOL solicited);
 typedef void(^GBIAP2PurchasePhaseDidEndHandler)(NSString *productIdentifier, GBIAP2PurchaseState purchaseState, BOOL solicited);
@@ -102,6 +106,12 @@ typedef void(^GBIAP2PurchaseDidCompleteHandler)(NSString *productIdentifier, GBI
 
 //Starts the restore process
 -(void)restorePurchases;
+
+#pragma mark - Purchase/Restore requests
+
+//Notifies you when a purchase or restore was requested
+-(void)addHandlerForDidRequestPurchase:(GBIAP2DidRequestPurchaseHandler)handler;
+-(void)addHandlerForDidRequestRestore:(GBIAP2DidRequestRestoreHandler)handler;
 
 #pragma mark - Metadata flow
 
