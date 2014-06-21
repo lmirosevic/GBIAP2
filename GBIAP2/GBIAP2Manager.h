@@ -46,7 +46,7 @@ typedef enum {
 #pragma mark - Handler block types
 
 //Enumeration
-typedef void(^GBIAP2ProductHandler)(NSString *productIdentifier, NSString *title, NSString *description, NSString *formattedPrice);
+typedef void(^GBIAP2ProductHandler)(NSString *productIdentifier, NSString *title, NSString *description, NSString *formattedPrice, NSDecimalNumber *rawPrice);
 
 //Metadata
 typedef void(^GBIAP2MetadataCompletionBlock)(BOOL success);

@@ -270,7 +270,7 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
         NSString *formattedPrice = [numberFormatter stringFromNumber:product.price];
         
         //call block
-        if (block) block(productIdentifier, title, description, formattedPrice);
+        if (block) block(productIdentifier, title, description, formattedPrice, product.price);
     }
 }
 
