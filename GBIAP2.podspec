@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name                  = 'GBIAP2'
-  s.version               = '1.1.1'
+  s.version               = '2.0.0'
   s.summary               = 'Goonbee\'s In-App Purchases, simplified. Second Edition.'
   s.homepage              = 'https://github.com/lmirosevic/GBIAP2'
   s.license               = { type: 'Apache License, Version 2.0', file: 'LICENSE' }
