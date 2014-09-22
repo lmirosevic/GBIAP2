@@ -29,7 +29,6 @@ static NSString * const kVerificationEndpointServerPath = @"development";
 @property (strong, nonatomic) NSMutableSet                  *solicitedPurchases;
 @property (strong, nonatomic) id<GBIAP2AnalyticsModule>     analyticsModule;
 @property (assign, nonatomic) BOOL                          isMetadataFetchInProgress;
-@property (copy, nonatomic) GBIAP2MetadataCompletionBlock   internalMetadataFetchCompletedBlock;
 
 //Solicitation state
 @property (assign, nonatomic, readonly) BOOL                isSolicitedRestoreInProgress;
@@ -95,7 +94,6 @@ static NSString * const kVerificationEndpointServerPath = @"development";
     self.validationServers = nil;
     self.productCache = nil;
     self.solicitedPurchases = nil;
-    self.internalMetadataFetchCompletedBlock = nil;
     
     //handler storage
     self.didRequestPurchaseHandlers = nil;
@@ -205,19 +203,18 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
 
 #pragma mark - IAP prep phase
 
--(void)fetchMetadataForProducts:(NSArray *)productIdentifiers completed:(GBIAP2MetadataCompletionBlock)block {
+-(void)fetchMetadataForProducts:(NSArray *)productIdentifiers {
     //analytics
     if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerUserDidRequestMetadataForProducts:)]) [self.analyticsModule iapManagerUserDidRequestMetadataForProducts:productIdentifiers];
     
-    //remove a dangling block if there was one
-    self.internalMetadataFetchCompletedBlock = nil;
+    //call handlers letting them know that a fetch started
+    for (GBIAP2MetadataFetchDidBeginHandler handler in self.didBeginMetadataFetchHandlers) {
+        handler(productIdentifiers);
+    }
     
     if (!self.isMetadataFetchInProgress) {
         if (productIdentifiers) {
             self.isMetadataFetchInProgress = YES;
-            
-            //remember the block
-            self.internalMetadataFetchCompletedBlock = block;
             
             //create products request
             SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:[NSSet setWithArray:productIdentifiers]];
@@ -226,22 +223,16 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
             //kick off request
             [productsRequest start];
             
-            //call handlers
-            for (GBIAP2MetadataFetchDidBeginHandler handler in self.didBeginMetadataFetchHandlers) {
-                handler(productIdentifiers);
-            }
-            
             //analytics
             if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidBeginMetadataFetchForProducts:)]) [self.analyticsModule iapManagerDidBeginMetadataFetchForProducts:productIdentifiers];
         }
         else {
-            @throw [NSException exceptionWithName:@"BadParams" reason:@"productIdentifiers, can't request products without identifiers" userInfo:nil];
+            @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"ProductIdentifiers wasn't truthy, can't request products without identifiers" userInfo:nil];
         }
     }
-    //busy
+    //already fetching, might be initiated by someone else, in any case, if we set a handler then we will get updates.
     else {
-        //let client know that it failed already
-        if (block) block(NO);
+        //noop
     }
 }
 
@@ -279,13 +270,13 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
 -(void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response {
     //to get back to the main thread because sometimes this is called on a different thread (this was the case on OS X 10.8.2)
     dispatch_async(dispatch_get_main_queue(), ^{
+        //no longer in process
+        self.isMetadataFetchInProgress = NO;
+        
         //cache the products
         for (SKProduct *product in response.products) {
             self.productCache[product.productIdentifier] = product;
         }
-        
-        //no longer in process
-        self.isMetadataFetchInProgress = NO;
         
         //call the handlers
         for (GBIAP2MetadataFetchDidEndHandler handler in self.didEndMetadataFetchHandlers) {
@@ -294,23 +285,14 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
         
         //analytics
         if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndMetadataFetchForProducts:state:)]) [self.analyticsModule iapManagerDidEndMetadataFetchForProducts:[self.productCache allKeys] state:GBIAP2MetadataFetchStateSuccess];
-        
-        //call the internal handler if we have one. call this last in case the client inside it chooses to make a purchase, so the metadata fetch state has had time to propagete through the system before the purchase state kicks off
-        if (self.internalMetadataFetchCompletedBlock) {
-            self.internalMetadataFetchCompletedBlock(YES);
-            self.internalMetadataFetchCompletedBlock = nil;
-        }
     });
 }
 
-//this one isnt technically in the SKProductsRequestDelegate but he might as well be
+//this one isn't technically in the SKProductsRequestDelegate but he might as well be
 -(void)request:(SKRequest *)request didFailWithError:(NSError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
-        //call the internal handler if we have one
-        if (self.internalMetadataFetchCompletedBlock) {
-            self.internalMetadataFetchCompletedBlock(NO);
-            self.internalMetadataFetchCompletedBlock = nil;
-        }
+        //no longer in process
+        self.isMetadataFetchInProgress = NO;
         
         //call the handlers
         for (GBIAP2MetadataFetchDidEndHandler handler in self.didEndMetadataFetchHandlers) {
@@ -325,7 +307,7 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
 #pragma mark - Purchasing phase
 
 //Adds the purchase to the list of purchases
--(void)enqueuePurchaseWithIdentifier:(NSString *)productIdentifier {
+-(void)purchaseProductWithIdentifier:(NSString *)productIdentifier {
     //analytics
     if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerUserDidRequestPurchaseForProduct:)]) [self.analyticsModule iapManagerUserDidRequestPurchaseForProduct:productIdentifier];
     

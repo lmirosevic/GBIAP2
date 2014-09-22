@@ -49,7 +49,6 @@ typedef enum {
 typedef void(^GBIAP2ProductHandler)(NSString *productIdentifier, NSString *title, NSString *description, NSString *formattedPrice, NSDecimalNumber *rawPrice);
 
 //Metadata
-typedef void(^GBIAP2MetadataCompletionBlock)(BOOL success);
 typedef void(^GBIAP2MetadataFetchDidBeginHandler)(NSArray *productIdentifiers);
 typedef void(^GBIAP2MetadataFetchDidEndHandler)(NSArray *productIdentifiers, GBIAP2MetadataFetchState fetchState);
 
@@ -94,15 +93,15 @@ typedef void(^GBIAP2PurchaseDidCompleteHandler)(NSString *productIdentifier, GBI
 #pragma mark - IAP prep phase
 
 //Fetch metadata for products. Add a handler to process it
--(void)fetchMetadataForProducts:(NSArray *)productIdentifiers completed:(GBIAP2MetadataCompletionBlock)block;
+-(void)fetchMetadataForProducts:(NSArray *)productIdentifiers;
 
 //Enumerate the different products
 -(void)enumerateFetchedProductsWithBlock:(GBIAP2ProductHandler)block showCurrencySymbol:(BOOL)shouldShowCurrencySymbol;
 
 #pragma mark - Purchasing phase
 
-//Adds the purchase to the list of purchases
--(void)enqueuePurchaseWithIdentifier:(NSString *)productIdentifier;
+//Adds the purchase to the purchases queue
+-(void)purchaseProductWithIdentifier:(NSString *)productIdentifier;
 
 //Starts the restore process
 -(void)restorePurchases;
