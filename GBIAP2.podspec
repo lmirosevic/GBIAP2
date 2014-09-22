@@ -7,7 +7,6 @@ Pod::Spec.new do |s|
   s.author                = { 'Luka Mirosevic' => 'luka@goonbee.com' }
   s.source                = { git: 'https://github.com/lmirosevic/GBIAP2.git', tag: s.version.to_s }
   s.ios.deployment_target = '5.0'
-  s.osx.deployment_target = '10.7'
   s.requires_arc          = true
   s.source_files          = 'GBIAP2/GBIAP2.h', 'GBIAP2/GBIAP2Manager.{h,m}', 'GBIAP2/GBIAP2DebuggingModule.{h,m}'
   s.public_header_files   = 'GBIAP2/GBIAP2.h', 'GBIAP2/GBIAP2Manager.h', 'GBIAP2/GBIAP2DebuggingModule.h'
