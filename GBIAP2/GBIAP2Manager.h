@@ -79,8 +79,9 @@ typedef void(^GBIAP2PurchaseDidCompleteHandler)(NSString *productIdentifier, GBI
  */
 + (GBIAP2 *)purchaseManager;
 
-//Just a quick convenience
+//Conveniences
 #define GBIAPManager [GBIAP2 purchaseManager]
+#define GBIAP [GBIAP2 purchaseManager]
 
 #pragma mark - Setup phase
 
