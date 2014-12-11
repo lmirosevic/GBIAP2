@@ -43,6 +43,7 @@ static NSString * const kVerificationEndpointServerPath = @"development";
 //Metadata
 @property (strong, nonatomic) NSMutableArray                *didBeginMetadataFetchHandlers;
 @property (strong, nonatomic) NSMutableArray                *didEndMetadataFetchHandlers;
+@property (strong, nonatomic) NSMutableArray                *didEndMetadataFetchHandlersTemporary;
 
 //Purchase flow
 @property (strong, nonatomic) NSMutableArray                *didBeginPurchasePhaseHandlers;
@@ -86,30 +87,6 @@ static NSString * const kVerificationEndpointServerPath = @"development";
     return self;
 }
 
--(void)dealloc {
-    dispatch_release(self.myQueue);
-    self.myQueue = nil;
-    
-    self.analyticsModule = nil;
-    self.validationServers = nil;
-    self.productCache = nil;
-    self.solicitedPurchases = nil;
-    
-    //handler storage
-    self.didRequestPurchaseHandlers = nil;
-    self.didRequestRestoreHandlers = nil;
-    self.didBeginMetadataFetchHandlers = nil;
-    self.didEndMetadataFetchHandlers = nil;
-    self.didBeginPurchasePhaseHandlers = nil;
-    self.didEndPurchasePhaseHandlers = nil;
-    self.didBeginRestorePhaseHandlers = nil;
-    self.didEndRestorePhaseHandlers = nil;
-    self.didBeginVerificationPhaseHandlers = nil;
-    self.didEndVerificationPhaseHandlers = nil;
-    self.didSuccessfullyAcquireProductHandlers = nil;
-    self.didFailToAcquireProductHandlers = nil;
-}
-
 //Borrowed from GBToolbox
 #define _lazy(Class, propertyName, ivar) -(Class *)propertyName {if (!ivar) {ivar = [[Class alloc] init];}return ivar;}
 
@@ -120,6 +97,7 @@ _lazy(NSMutableArray, didRequestPurchaseHandlers, _didRequestPurchaseHandlers)
 _lazy(NSMutableArray, didRequestRestoreHandlers, _didRequestRestoreHandlers)
 _lazy(NSMutableArray, didBeginMetadataFetchHandlers, _didBeginMetadataFetchHandlers)
 _lazy(NSMutableArray, didEndMetadataFetchHandlers, _didEndMetadataFetchHandlers)
+_lazy(NSMutableArray, didEndMetadataFetchHandlersTemporary, _didEndMetadataFetchHandlersTemporary)
 _lazy(NSMutableArray, didBeginPurchasePhaseHandlers, _didBeginPurchasePhaseHandlers)
 _lazy(NSMutableArray, didEndPurchasePhaseHandlers, _didEndPurchasePhaseHandlers)
 _lazy(NSMutableArray, didBeginRestorePhaseHandlers, _didBeginRestorePhaseHandlers)
@@ -204,6 +182,10 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
 #pragma mark - IAP prep phase
 
 -(void)fetchMetadataForProducts:(NSArray *)productIdentifiers {
+    [self fetchMetadataForProducts:productIdentifiers block:nil];
+}
+
+-(void)fetchMetadataForProducts:(NSArray *)productIdentifiers block:(GBIAP2MetadataFetchDidEndHandler)handler {
     //analytics
     if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerUserDidRequestMetadataForProducts:)]) [self.analyticsModule iapManagerUserDidRequestMetadataForProducts:productIdentifiers];
     
@@ -211,6 +193,9 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
     for (GBIAP2MetadataFetchDidBeginHandler handler in self.didBeginMetadataFetchHandlers) {
         handler(productIdentifiers);
     }
+    
+    // store the temporary handler if we had one
+    if (handler) [self.didEndMetadataFetchHandlersTemporary addObject:[handler copy]];
     
     if (!self.isMetadataFetchInProgress) {
         if (productIdentifiers) {
@@ -278,7 +263,15 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
             self.productCache[product.productIdentifier] = product;
         }
         
-        //call the handlers
+        // call the temporary handlers first
+        for (GBIAP2MetadataFetchDidEndHandler handlerTemporary in self.didEndMetadataFetchHandlersTemporary) {
+            handlerTemporary([self.productCache allKeys], GBIAP2MetadataFetchStateSuccess);
+        }
+        // remove the temporary handlers
+        self.didEndMetadataFetchHandlersTemporary = nil;//it's lazy so we can just kill the whole thing
+
+        
+        //call the stored handlers second
         for (GBIAP2MetadataFetchDidEndHandler handler in self.didEndMetadataFetchHandlers) {
             handler([self.productCache allKeys], GBIAP2MetadataFetchStateSuccess);
         }
@@ -298,6 +291,13 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
         for (GBIAP2MetadataFetchDidEndHandler handler in self.didEndMetadataFetchHandlers) {
             handler(nil, GBIAP2MetadataFetchStateFailed);
         }
+        
+        // call the temporary handlers
+        for (GBIAP2MetadataFetchDidEndHandler handlerTemporary in self.didEndMetadataFetchHandlersTemporary) {
+            handlerTemporary(nil, GBIAP2MetadataFetchStateFailed);
+        }
+        // remove the temporary handlers
+        self.didEndMetadataFetchHandlersTemporary = nil;//it's lazy so we can just kill the whole thing
         
         //analytics
         if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndMetadataFetchForProducts:state:)]) [self.analyticsModule iapManagerDidEndMetadataFetchForProducts:@[] state:GBIAP2MetadataFetchStateFailed];
