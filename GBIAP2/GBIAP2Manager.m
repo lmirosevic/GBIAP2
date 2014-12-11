@@ -24,7 +24,6 @@ static NSString * const kVerificationEndpointServerPath = @"development";
 }
 
 //Some state
-@property (copy, nonatomic) NSArray                         *validationServers;
 @property (strong, nonatomic) NSMutableDictionary           *productCache;
 @property (strong, nonatomic) NSMutableSet                  *solicitedPurchases;
 @property (strong, nonatomic) id<GBIAP2AnalyticsModule>     analyticsModule;
@@ -173,10 +172,6 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
     
     //analytics
     if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidRegisterValidationServers:)]) [self.analyticsModule iapManagerDidRegisterValidationServers:validationServers];
-}
-
--(NSArray *)validationServers {
-    return _validationServers;
 }
 
 #pragma mark - IAP prep phase
