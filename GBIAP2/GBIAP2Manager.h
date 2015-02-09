@@ -97,6 +97,9 @@ typedef void(^GBIAP2PurchaseDidCompleteHandler)(NSString *productIdentifier, GBI
 
 /**
  Use this property to set the location of the GBIAP2 validation servers.
+ 
+ e.g. @"IAPValidation.goonbee.com"
+ 
  */
 @property (copy, nonatomic, setter=registerValidationServers:) NSArray *validationServers;
 

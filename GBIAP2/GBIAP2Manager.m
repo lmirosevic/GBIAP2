@@ -12,10 +12,10 @@
 
 static CGFloat const kGBIAP2TimeoutInterval = 20;
 
-#if !DEBUG
-static NSString * const kVerificationEndpointServerPath = @"production";
+#if DEBUG
+static NSString * const kVerificationEndpointServerPath = @"sandbox";
 #else
-static NSString * const kVerificationEndpointServerPath = @"development";
+static NSString * const kVerificationEndpointServerPath = @"production";
 #endif
 
 @interface GBIAP2 () <SKProductsRequestDelegate, SKPaymentTransactionObserver> {
@@ -459,7 +459,7 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
     
     NSUInteger serverCount = self.validationServers.count;
     NSString *randomServer = self.validationServers[arc4random() % serverCount];
-    NSURL *url = [NSURL URLWithString:randomServer];
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/%@", randomServer, kVerificationEndpointServerPath]];
     
     //purchase
     if (transactionType == GBIAP2TransactionTypePurchase || transactionType == GBIAP2TransactionTypeRePurchase) {
@@ -523,7 +523,7 @@ _lazy(NSMutableArray, didFailToAcquireProductHandlers, _didFailToAcquireProductH
                 //analytics
                 if (self.analyticsModule && [self.analyticsModule respondsToSelector:@selector(iapManagerDidEndVerificationForProduct:onServer:state:)]) [self.analyticsModule iapManagerDidEndVerificationForProduct:productIdentifier onServer:randomServer state:purchaseState];
                 
-                //if succesful
+                //if successful
                 if (purchaseState == GBIAP2VerificationStateSuccess) {
                     //call success handlers
                     for (GBIAP2PurchaseDidCompleteHandler handler in self.didSuccessfullyAcquireProductHandlers) {
