@@ -45,26 +45,26 @@ typedef enum {
 
 #pragma mark - Handler block types
 
-//Enumeration
+// Enumeration
 typedef void(^GBIAP2ProductHandler)(NSString *productIdentifier, NSString *title, NSString *description, NSString *formattedPrice, NSDecimalNumber *rawPrice);
 
-//Metadata
+// Metadata
 typedef void(^GBIAP2MetadataFetchDidBeginHandler)(NSArray *productIdentifiers);
 typedef void(^GBIAP2MetadataFetchDidEndHandler)(NSArray *productIdentifiers, GBIAP2MetadataFetchState fetchState);
 
-//Purchase/restore requests
+// Purchase/restore requests
 typedef void(^GBIAP2DidRequestPurchaseHandler)(NSString *productIdentifier);
 typedef void(^GBIAP2DidRequestRestoreHandler)(void);
 
-//Purchase or restore phase
+// Purchase or restore phase
 typedef void(^GBIAP2PurchasePhaseDidBeginHandler)(NSString *productIdentifier, BOOL solicited);
 typedef void(^GBIAP2PurchasePhaseDidEndHandler)(NSString *productIdentifier, GBIAP2PurchaseState purchaseState, BOOL solicited);
 
-//Verification phase
+// Verification phase
 typedef void(^GBIAP2VerificationPhaseDidBeginHandler)(NSString *productIdentifier, BOOL solicited);
 typedef void(^GBIAP2VerificationPhaseDidEndHandler)(NSString *productIdentifier, GBIAP2VerificationState verificationState, BOOL solicited);
 
-//Purchase acquiry
+// Purchase acquiry
 typedef void(^GBIAP2PurchaseDidCompleteHandler)(NSString *productIdentifier, GBIAP2TransactionType transactionType, GBIAP2TransactionState transactionState, BOOL solicited);
 
 
