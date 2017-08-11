@@ -7,6 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <StoreKit/StoreKit.h>
 
 #pragma mark - Types
 
@@ -46,26 +47,26 @@ typedef enum {
 #pragma mark - Handler block types
 
 // Enumeration
-typedef void(^GBIAP2ProductHandler)(NSString *productIdentifier, NSString *title, NSString *description, NSString *formattedPrice, NSDecimalNumber *rawPrice);
+typedef void(^GBIAP2ProductHandler)(SKProduct *product, NSString *productIdentifier, NSString *title, NSString *description, NSString *formattedPrice, NSDecimalNumber *rawPrice);
 
 // Metadata
 typedef void(^GBIAP2MetadataFetchDidBeginHandler)(NSArray *productIdentifiers);
-typedef void(^GBIAP2MetadataFetchDidEndHandler)(NSArray *productIdentifiers, GBIAP2MetadataFetchState fetchState);
+typedef void(^GBIAP2MetadataFetchDidEndHandler)(NSArray<SKProduct *> *products, NSArray *productIdentifiers, GBIAP2MetadataFetchState fetchState);
 
 // Purchase/restore requests
-typedef void(^GBIAP2DidRequestPurchaseHandler)(NSString *productIdentifier);
+typedef void(^GBIAP2DidRequestPurchaseHandler)(SKProduct *product, NSString *productIdentifier);
 typedef void(^GBIAP2DidRequestRestoreHandler)(void);
 
 // Purchase or restore phase
-typedef void(^GBIAP2PurchasePhaseDidBeginHandler)(NSString *productIdentifier, BOOL solicited);
-typedef void(^GBIAP2PurchasePhaseDidEndHandler)(NSString *productIdentifier, GBIAP2PurchaseState purchaseState, BOOL solicited);
+typedef void(^GBIAP2PurchasePhaseDidBeginHandler)(SKProduct *product, NSString *productIdentifier, BOOL solicited);
+typedef void(^GBIAP2PurchasePhaseDidEndHandler)(SKProduct *product, NSString *productIdentifier, GBIAP2PurchaseState purchaseState, BOOL solicited);
 
 // Verification phase
-typedef void(^GBIAP2VerificationPhaseDidBeginHandler)(NSString *productIdentifier, BOOL solicited);
-typedef void(^GBIAP2VerificationPhaseDidEndHandler)(NSString *productIdentifier, GBIAP2VerificationState verificationState, BOOL solicited);
+typedef void(^GBIAP2VerificationPhaseDidBeginHandler)(SKProduct *product, NSString *productIdentifier, BOOL solicited);
+typedef void(^GBIAP2VerificationPhaseDidEndHandler)(SKProduct *product, NSString *productIdentifier, GBIAP2VerificationState verificationState, BOOL solicited);
 
 // Purchase acquiry
-typedef void(^GBIAP2PurchaseDidCompleteHandler)(NSString *productIdentifier, GBIAP2TransactionType transactionType, GBIAP2TransactionState transactionState, BOOL solicited);
+typedef void(^GBIAP2PurchaseDidCompleteHandler)(SKProduct *product, NSString *productIdentifier, GBIAP2TransactionType transactionType, GBIAP2TransactionState transactionState, BOOL solicited);
 
 
 @protocol GBIAP2AnalyticsModule;
